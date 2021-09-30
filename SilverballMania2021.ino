@@ -5,6 +5,10 @@
     GNU General Public License for more details.
 
     See <https://www.gnu.org/licenses/>.
+
+
+    This is the consolidated/audited code that I believe properly compiles and may be up to date?
+     - Mike from PinballHelp
 */
 
 // SpotSilverballLetter is broken for last letter

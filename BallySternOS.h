@@ -104,6 +104,7 @@ boolean BSOS_ReadSingleSwitchState(byte switchNum);
 void BSOS_PushToSolenoidStack(byte solenoidNumber, byte numPushes, boolean disableOverride = false);
 void BSOS_SetCoinLockout(boolean lockoutOn = false, byte solbit = CONTSOL_DISABLE_COIN_LOCKOUT);
 void BSOS_SetDisableFlippers(boolean disableFlippers = true, byte solbit = CONTSOL_DISABLE_FLIPPERS);
+void BSOS_SetContinuousSolenoidBit(boolean bitOn, byte solBit = 0x10);
 byte BSOS_ReadContinuousSolenoids();
 void BSOS_DisableSolenoidStack();
 void BSOS_EnableSolenoidStack();
@@ -144,7 +145,11 @@ void BSOS_PlaySB100Chime(byte soundByte);
 
 #endif
 
-#if (BALLY_STERN_OS_HARDWARE_REV==2 && defined(BALLY_STERN_OS_USE_SB300))
+#ifdef BALLY_STERN_OS_USE_DASH51
+void BSOS_PlaySoundDash51(byte soundByte);
+#endif
+
+#if (BALLY_STERN_OS_HARDWARE_REV>=2 && defined(BALLY_STERN_OS_USE_SB300))
 void BSOS_PlaySB300SquareWave(byte soundRegister, byte soundByte);
 void BSOS_PlaySB300Analog(byte soundRegister, byte soundByte);
 #endif 

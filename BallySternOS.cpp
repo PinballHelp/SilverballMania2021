@@ -19,8 +19,6 @@
  */
 
 
-// Extra ball & credit broken with two-player game because score changes between players
-
  
 #include <Arduino.h>
 #include <EEPROM.h>
@@ -1621,16 +1619,17 @@ void BSOS_InitializeMPU() {
 #elif (BALLY_STERN_OS_HARDWARE_REV==3)
   for (byte count=2; count<32; count++) pinMode(count, INPUT);
 
-  // Decide if halt should be raised (based on switch) TBD
+  // Decide if halt should be raised (based on switch) 
   pinMode(13, INPUT);
-  if (digitalRead(13)) {
+  if (digitalRead(13)==0) {
+    // Switch indicates the Arduino should run, so HALT the 6800
     pinMode(14, OUTPUT); // Halt
     digitalWrite(14, LOW);
   } else {
+    // Let the 6800 run 
     pinMode(14, OUTPUT); // Halt
     digitalWrite(14, HIGH);
-    while(digitalRead(13)==0);
-    digitalWrite(14, LOW);
+    while(1);
   }  
   
 #endif  
@@ -1833,6 +1832,16 @@ void BSOS_SetDisableFlippers(boolean disableFlippers, byte solbit) {
   BSOS_DataWrite(ADDRESS_U11_B, CurrentSolenoidByte);
 }
 
+void BSOS_SetContinuousSolenoidBit(boolean bitOn, byte solbit) {
+
+  if (bitOn) {
+    CurrentSolenoidByte = CurrentSolenoidByte | solbit;
+  } else {
+    CurrentSolenoidByte = CurrentSolenoidByte & ~solbit;
+  }
+  BSOS_DataWrite(ADDRESS_U11_B, CurrentSolenoidByte);
+}
+
 
 byte BSOS_ReadContinuousSolenoids() {
   return BSOS_DataRead(ADDRESS_U11_B);
@@ -1970,7 +1979,63 @@ void BSOS_PlaySB100Chime(byte soundByte) {
 #endif
 
 
-#if (BALLY_STERN_OS_HARDWARE_REV==2 && defined(BALLY_STERN_OS_USE_SB300))
+#ifdef BALLY_STERN_OS_USE_DASH51
+void BSOS_PlaySoundDash51(byte soundByte) {
+
+  // This device has 32 possible sounds, but they're mapped to 
+  // 0 - 15 and then 128 - 143 on the original card, with bits b4, b5, and b6 reserved
+  // for timing controls.
+  // For ease of use, I've mapped the sounds from 0-31
+  
+  byte oldSolenoidControlByte, soundLowerNibble, displayWithSoundBit4, oldDisplayByte;
+
+  // mask further zero-crossing interrupts during this 
+  noInterrupts();
+
+  // Get the current value of U11:PortB - current solenoids
+  oldSolenoidControlByte = BSOS_DataRead(ADDRESS_U11_B);
+  oldDisplayByte = BSOS_DataRead(ADDRESS_U11_A);
+  soundLowerNibble = (oldSolenoidControlByte&0xF0) | (soundByte&0x0F); 
+  displayWithSoundBit4 = oldDisplayByte;
+  if (soundByte & 0x10) displayWithSoundBit4 |= 0x02;
+  else displayWithSoundBit4 &= 0xFD;
+    
+  // Put 1s on momentary solenoid lines
+  BSOS_DataWrite(ADDRESS_U11_B, oldSolenoidControlByte | 0x0F);
+
+  // Put sound latch low
+  BSOS_DataWrite(ADDRESS_U11_B_CONTROL, 0x34);
+
+  // Let the strobe stay low for a moment
+  delayMicroseconds(68);
+
+  // put bit 4 on Display Enable 7
+  BSOS_DataWrite(ADDRESS_U11_A, displayWithSoundBit4);
+
+  // Put sound latch high
+  BSOS_DataWrite(ADDRESS_U11_B_CONTROL, 0x3C);
+  
+  // put the new byte on U11:PortB (the lower nibble is currently loaded)
+  BSOS_DataWrite(ADDRESS_U11_B, soundLowerNibble);
+        
+  // wait 180 microseconds
+  delayMicroseconds(180);
+
+  // Restore the original solenoid byte
+  BSOS_DataWrite(ADDRESS_U11_B, oldSolenoidControlByte);
+
+  // Restore the original display byte
+  BSOS_DataWrite(ADDRESS_U11_A, oldDisplayByte);
+
+  // Put sound latch low
+  BSOS_DataWrite(ADDRESS_U11_B_CONTROL, 0x34);
+
+  interrupts();
+}
+
+#endif
+
+#if (BALLY_STERN_OS_HARDWARE_REV>=2 && defined(BALLY_STERN_OS_USE_SB300))
 
 void BSOS_PlaySB300SquareWave(byte soundRegister, byte soundByte) {
   BSOS_DataWrite(ADDRESS_SB300_SQUARE_WAVES+soundRegister, soundByte);
